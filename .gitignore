@@ -1,0 +1,32 @@
+# Virtual environments
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Data outputs
+tmp_sample_frames/
+tmp_crops/
+tmp_crops_filtered/
+tmp_crops_filtered2/
+gallery_embeds.npz
+gallery_meta.json
+
+# Videos and images
+videos/
+results/
+*.jpg
+*.jpeg
+*.png
+*.mp4
+*.mov
+*.mkv
+*.avi
+
+# Model downloads
+models/
+
+# OS noise
+.DS_Store
