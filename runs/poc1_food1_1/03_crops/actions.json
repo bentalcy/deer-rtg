@@ -1,0 +1,196 @@
+[
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000060.jpg",
+    "detections": [
+      {
+        "bbox": [
+          624,
+          461,
+          1124,
+          810
+        ],
+        "conf": 0.8794649839401245,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000060_det00.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000300.jpg",
+    "detections": [
+      {
+        "bbox": [
+          633,
+          471,
+          1122,
+          811
+        ],
+        "conf": 0.882970929145813,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000300_det00.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000360.jpg",
+    "detections": [
+      {
+        "bbox": [
+          645,
+          468,
+          1122,
+          813
+        ],
+        "conf": 0.8944970965385437,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000360_det00.jpg"
+      },
+      {
+        "bbox": [
+          412,
+          476,
+          562,
+          759
+        ],
+        "conf": 0.7349730730056763,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000360_det01.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000000.jpg",
+    "detections": [
+      {
+        "bbox": [
+          635,
+          463,
+          1122,
+          812
+        ],
+        "conf": 0.880398154258728,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000000_det00.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000180.jpg",
+    "detections": [
+      {
+        "bbox": [
+          629,
+          469,
+          1122,
+          812
+        ],
+        "conf": 0.8748062252998352,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000180_det00.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000540.jpg",
+    "detections": [
+      {
+        "bbox": [
+          646,
+          466,
+          1122,
+          810
+        ],
+        "conf": 0.8943668007850647,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000540_det00.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000420.jpg",
+    "detections": [
+      {
+        "bbox": [
+          648,
+          474,
+          1120,
+          808
+        ],
+        "conf": 0.890863835811615,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000420_det00.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000120.jpg",
+    "detections": [
+      {
+        "bbox": [
+          646,
+          442,
+          1127,
+          809
+        ],
+        "conf": 0.8772419095039368,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000120_det00.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000240.jpg",
+    "detections": [
+      {
+        "bbox": [
+          635,
+          468,
+          1123,
+          815
+        ],
+        "conf": 0.8809981346130371,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000240_det00.jpg"
+      },
+      {
+        "bbox": [
+          386,
+          512,
+          564,
+          755
+        ],
+        "conf": 0.4552629590034485,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000240_det01.jpg"
+      }
+    ]
+  },
+  {
+    "frame_path": "runs/poc1_food1_1/02_frames/food1_1_frame000480.jpg",
+    "detections": [
+      {
+        "bbox": [
+          656,
+          450,
+          1123,
+          809
+        ],
+        "conf": 0.8819909691810608,
+        "cls": 0,
+        "cls_name": "Deer",
+        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000480_det00.jpg"
+      }
+    ]
+  }
+]

@@ -23,9 +23,17 @@ class DeerDetector:
             conf=self.conf,
             verbose=False,
         )
+        if results is None:
+            return []
         detections = []
+        if isinstance(results, list):
+            results_list = results
+        else:
+            results_list = [results]
 
-        for r in results:
+        for r in results_list:
+            if r.boxes is None:
+                continue
             for box in r.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                 conf = float(box.conf[0])
@@ -93,6 +101,7 @@ def extract_deer_crops_from_frames(
     max_rel_area: Optional[float] = None,
     min_aspect: float = 0.3,
     max_aspect: float = 3.5,
+    actions_path: Optional[str] = None,
 ):
     frames_root = Path(frames_root)
     out_root = Path(out_root)
@@ -101,6 +110,7 @@ def extract_deer_crops_from_frames(
     detector = DeerDetector(model_name=model_name, conf=min_conf)
     classifier = load_clip_classifier() if filter_nondeer else None
     frame_files = [p for p in frames_root.rglob("*.jpg")]
+    actions = []
 
     print(f"Found {len(frame_files)} frames to scan.")
 
@@ -111,8 +121,10 @@ def extract_deer_crops_from_frames(
             continue
 
         detections = detector.detect_on_image(img)
-        if not detections:
-            continue
+        frame_actions = {
+            "frame_path": str(frame_path),
+            "detections": [],
+        }
 
         stem = frame_path.stem
         subdir = out_root / frame_path.parent.relative_to(frames_root)
@@ -148,6 +160,25 @@ def extract_deer_crops_from_frames(
             out_name = f"{stem}_det{i:02d}.jpg"
             out_path = subdir / out_name
             cv2.imwrite(str(out_path), crop)
+            frame_actions["detections"].append(
+                {
+                    "bbox": [x1, y1, x2, y2],
+                    "conf": det["conf"],
+                    "cls": det["cls"],
+                    "cls_name": det["cls_name"],
+                    "new_name": str(out_path),
+                }
+            )
+
+        actions.append(frame_actions)
+
+    if actions_path is not None:
+        import json
+
+        actions_file = Path(actions_path)
+        actions_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(actions_file, "w") as f:
+            json.dump(actions, f, indent=2)
 
 
 if __name__ == "__main__":
@@ -164,6 +195,7 @@ if __name__ == "__main__":
     parser.add_argument("--max-rel-area", type=float, default=None, help="Max bbox area as fraction of frame")
     parser.add_argument("--min-aspect", type=float, default=0.3, help="Min width/height for bbox")
     parser.add_argument("--max-aspect", type=float, default=3.5, help="Max width/height for bbox")
+    parser.add_argument("--actions-path", default=None)
     args = parser.parse_args()
 
     extract_deer_crops_from_frames(
@@ -177,4 +209,5 @@ if __name__ == "__main__":
         max_rel_area=args.max_rel_area,
         min_aspect=args.min_aspect,
         max_aspect=args.max_aspect,
+        actions_path=args.actions_path,
     )
