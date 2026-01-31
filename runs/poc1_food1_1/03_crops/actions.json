@@ -47,18 +47,6 @@
         "cls": 0,
         "cls_name": "Deer",
         "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000360_det00.jpg"
-      },
-      {
-        "bbox": [
-          412,
-          476,
-          562,
-          759
-        ],
-        "conf": 0.7349730730056763,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000360_det01.jpg"
       }
     ]
   },
@@ -161,18 +149,6 @@
         "cls": 0,
         "cls_name": "Deer",
         "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000240_det00.jpg"
-      },
-      {
-        "bbox": [
-          386,
-          512,
-          564,
-          755
-        ],
-        "conf": 0.4552629590034485,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/03_crops/food1_1_frame000240_det01.jpg"
       }
     ]
   },

@@ -12,6 +12,9 @@ Goal: given ~5,000 short videos of ~100 individual deer, automatically detect **
 - POC 1 frames extracted for `food1_1.mp4` in `runs/poc1_food1_1/02_frames/`.
 - Local detector weights available at `models/peura/train/weights/best.pt`.
 - POC 1 detection outputs saved under `runs/poc1_food1_1/03_crops/`.
+- Crop cleanup + stricter detection attempt is the next action.
+- Current cropping is OK for a single deer, but frames can contain multiple individual deer.
+- New pipeline step is needed to isolate/track multiple deer instead of assuming one target per frame.
 - POC 1 requires sampling every 10th frame with a hard cap of 10 frames.
 - Detection uses `atonus/peura` via `ultralytics` on macOS MPS.
 - JSON trails are expected for frames and detections.
@@ -20,17 +23,38 @@ Goal: given ~5,000 short videos of ~100 individual deer, automatically detect **
 - **TODO**:
 - [x] Provide local weights for `atonus/peura` in `models/`.
 - [x] Extract frames from `videos/food1_1.mp4` with stride=10 and cap=10, write frame actions JSON.
-- [x] Run deer detection on sampled frames and write detection actions JSON.
-- [x] Confirm whether deer are present in sampled frames.
+- [ ] Rerun detection with stricter NMS/size/aspect params to reduce multi-animal crops.
+- [ ] Add multi-deer isolation step: build tracklets across sampled frames and output per-track crops.
 - **How to resume**:
 - `uv venv .venv && source .venv/bin/activate`
 - `uv pip install -r requirements.txt`
-- Next file: `README.md`
+- Next file: `scripts/deer_detector.py`
+- New step script: `scripts/build_tracklets.py`
 - **Notes / decisions**:
 - Use `videos/food1_1.mp4` for POC 1.
 - Frame actions JSON: `runs/poc1_food1_1/02_frames/actions.json`.
 - Frame sampling config: every 1.0 seconds, cap at 10 frames.
 - Detection actions JSON: `runs/poc1_food1_1/03_crops/actions.json`.
+- Second attempt params: NMS IoU=0.3, min_rel_area=0.02, max_rel_area=0.6, min_aspect=0.4, max_aspect=2.5, split wide boxes (aspect>2.2 or rel_area>0.4) with re-detect.
+- Third attempt params: tile detect (size=640, overlap=0.2, tile NMS IoU=0.5) with same NMS/size/aspect filters.
+- Fourth attempt params: limit to 1 detection per frame by area (max_dets=1, max_dets_by=area).
+
+### Proposed new step: Tracklets for multi-deer isolation
+
+Goal: when multiple deer are in the same frame, keep them as separate candidate individuals by associating detections across frames.
+
+Output: `runs/<run_id>/04_tracklets/track_<id>/...jpg` + `runs/<run_id>/04_tracklets/actions.json`.
+
+Command (POC):
+
+```bash
+python scripts/build_tracklets.py \
+  --frames-root runs/poc1_food1_1/02_frames \
+  --out-root runs/poc1_food1_1/04_tracklets \
+  --model models/peura/train/weights/best.pt \
+  --conf 0.4 --iou-nms 0.3 --match-iou 0.3 --max-missed 2 \
+  --actions-path runs/poc1_food1_1/04_tracklets/actions.json
+```
 - **Crop quality proposals (ordered by likely success)**:
 - Add tighter post-processing on detections: tune NMS IoU lower, enforce stricter min/max bbox area and aspect ratio to reject wide multi-animal boxes.
 - Add a segmentation refinement step (SAM or lightweight deer mask) inside each box, then crop to the tightest mask to isolate a single animal.
