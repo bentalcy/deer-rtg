@@ -55,7 +55,6 @@ pytest -q
 
 ruff check .
 ruff format .
-black .
 mypy .
 ````
 

@@ -69,9 +69,9 @@ Treat side gate output as a pre-fill suggestion only — always let the user con
 | Gallery | `data/gallery/gallery.json` |
 | Flank crops (253, playground) | `data/reid/flank_pool/` |
 | Instance index (has `side_pred`) | `data/reid/index.csv` |
-| Cluster assignments | `data/reid/clusters.csv` |
+| Cluster name suggestions (enrollment UI only) | `data/reid/clusters.csv` |
 | MegaDescriptor load pattern | `scripts/gallery_utils.py:load_megadescriptor()` |
-| HTTP server pattern | `scripts/reid/review_ui.py` |
+| HTTP server pattern | `scripts/enrollment_ui.py` |
 | Flank gate model | `data/models/flank_gate.pt` |
 | YOLO weights | `models/peura/train/weights/best.pt` |
 
