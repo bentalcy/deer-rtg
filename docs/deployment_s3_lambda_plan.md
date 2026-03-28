@@ -1,440 +1,196 @@
-# Deployment Plan - S3 + Lambda, Single User, Local Inference
+# Deployment Plan — AWS S3 + Lambda (Python)
 
-## ⚠ Decision Pending (2026-03-28) — Do not implement anything yet
-
-A full options review is in `docs/deployment_options_for_review.md`. The user is consulting an external expert. Wait for the decision to be recorded here before writing any deployment code.
-
-Options under consideration: AWS S3+Lambda (Python), Hetzner VPS, Oracle Always Free, Cloudflare Workers. Each has meaningful trade-offs around cost model, Python vs JS, and agent reliability. See the review doc for the full comparison.
+**Decision date:** 2026-03-28
+**Status:** Approved, budget pending NGO sign-off (expected 2–5 days). Do not implement until budget is confirmed.
 
 ---
 
-## ⚠ Original S3 + Lambda plan is also superseded
+## Why this was chosen
 
-**The S3 + Lambda plan below is the original design. It has been reviewed and replaced. Do not implement it.**
+Four options were evaluated on raw dollar cost and total practical cost (engineering + maintenance included). Full comparison in `docs/deployment_options_for_review.md`.
 
-### What changed and why
+- **Raw hosting: ~$1/year.** No-use-no-cost — idle months cost ~$0.07 (S3 storage only).
+- **Python throughout.** No rewrite required. Best-documented serverless platform — lowest agent error rate.
+- **Zero ongoing maintenance.** No server to patch or monitor.
 
-Cloud hosting is confirmed needed: rangers label remotely on their own devices with no access to the M3 Mac.
+Hetzner VPS was rejected: €39/year for a workload costing $1/year is not cost-optimized. Oracle Free was rejected: $0 raw cost but Oracle's weaker documentation makes agent mistakes more likely and token cost higher — savings are eaten by that risk.
 
-The S3 + Lambda plan was evaluated against three alternatives (reviewed with Claude Opus):
+---
 
-| Option | Problem |
-|--------|---------|
-| AWS S3 + Lambda (Python) | Image egress ~$0.09/GB — exceeds VPS cost once rangers browse images |
-| Cloudflare Pages + R2 + Workers | All backend must be rewritten in JavaScript. Non-starter for a Python codebase. KV eventual consistency requires Durable Objects (+$5/month) to fix. Less ecosystem support = more agent errors = higher token cost. |
-| Backblaze B2 + Lambda | Two vendors for marginal savings; more setup complexity |
-| **Hetzner VPS (€3.29/month)** | **✓ Recommended** |
+## Architecture
 
-### Chosen direction: Hetzner VPS
+```
+Rangers (browser)
+    │
+    ▼
+Lambda Function URL  ←── shared secret header auth
+    │
+    ├── GET /           → serves index.html (static UI)
+    ├── GET /items      → reads labels.json + image manifest from S3, returns JSON
+    ├── GET /image?path → returns presigned S3 URL for the thumbnail
+    ├── POST /enroll    → reads labels.json, updates one entry, writes back to S3
+    └── POST /bulk-enroll → reads labels.json, updates N entries, writes back to S3
 
-**Why:**
-- The existing Python stdlib server (`enrollment_ui.py`) deploys nearly as-is — no architecture rewrite, no JS, no split storage
-- AI coding agents are most reliable targeting "a Linux box running Python" — best-documented deployment target, fewest agent mistakes
-- At ~660 images and one active user, a small ARM VPS handles this trivially
-- Total cost: ~€3.29/month (~$3.60), predictable, no egress surprises
+S3 Bucket (versioning enabled)
+    ├── images/          ← thumbnails only (300KB each, ~200MB total)
+    ├── manifest.json    ← list of all image paths + side_pred hints
+    └── labels.json      ← current label state (image_path → deer_id + side)
 
-**Stack:**
-- Hetzner CAX11 (2 vCPU ARM, 4GB RAM, 40GB disk) — €3.29/month
-- nginx reverse proxy + Let's Encrypt (HTTPS)
-- `enrollment_ui.py` running as a systemd service
-- Images and `labels.json` on local disk
-- Daily rsync backup to the M3 Mac via cron
-
-**Risk and mitigations:**
-- Server can go down → enable unattended-upgrades; set up UptimeRobot free tier health check
-- Disk data loss → daily cron rsync to M3 Mac
-- No version history on labels → add `git init` to the labels directory, auto-commit on each write
-
-### Image thumbnails (required before deploy)
-
-Trail camera photos are 3–8MB each. Serving full resolution in a browser grid will be painfully slow over the internet. Before deploying, add a local pre-processing step:
-
-```bash
-# resize to max 1200px long edge, ~200–400KB each
-python scripts/resize_images_for_upload.py --input images/ --output images_web/
+M3 Mac (local only, never in Lambda)
+    ├── images/          ← originals (3–8MB each)
+    ├── data/gallery/gallery.json  ← compiled from labels, contains embeddings
+    └── scripts/compile_gallery_from_labels.py  ← downloads labels, runs MegaDescriptor, builds gallery.json
 ```
 
-The UI serves `images_web/` (display copies). Originals stay in `images/` on the M3 for embedding generation.
-
-### Required code changes to `enrollment_ui.py`
-
-1. Add `--images-dir` arg support (already done — points at `images_web/` on the server)
-2. Add a shared-secret auth header check in the Handler (one env var `ENROLL_SECRET`)
-3. Switch `labels.json` to an append-safe format (per-image files under `data/labels/` to avoid full-file corruption, or add git auto-commit after each write)
-4. Serve over a Unix socket so nginx proxies cleanly
-
-### What to implement (phases)
-
-**Phase 1 — working hosted labeling:**
-1. Provision Hetzner CAX11, install nginx + Python 3.11, configure systemd service
-2. Run `resize_images_for_upload.py` locally, rsync `images_web/` to server
-3. Add shared-secret auth to `enrollment_ui.py`
-4. Deploy, test with one ranger
-
-**Phase 2 — hardening:**
-1. Add git auto-commit to labels after each write
-2. Set up daily rsync cron back to M3 Mac
-3. UptimeRobot health check
+**Hard constraint:** Lambda never imports torch, timm, or numpy. No ML inference in the cloud path — ever.
 
 ---
 
-## Original S3 + Lambda Plan (kept for reference only)
+## Data formats
 
-## 1) Summary Of The Discussion And Relevant Context
+### Per-image label files (hosted in S3 under `labels/` prefix)
 
-### Decision made
-We are not hosting model inference in the cloud.
-
-The hosted system should do only:
-- show images in a browser UI
-- let the user assign a deer ID like `5A`
-- save that label centrally
-- keep costs extremely low
-
-Model-related work should stay local on the M3 machine:
-- embedding generation
-- gallery compilation
-- identification runs
-
-### Why this changes the deployment shape
-The current app is built as a local Python HTTP server that both:
-- serves the UI
-- reads local files
-- writes `gallery.json`
-- computes embeddings during enrollment
-
-That is not a good fit for ultra-low-cost hosting because:
-- it is stateful
-- it assumes local disk
-- it mixes UI, storage, and inference in one process
-
-### Relevant current code
-- `scripts/enrollment_ui.py`
-  - stdlib `BaseHTTPRequestHandler`
-  - serves HTML and API from one long-running Python process
-  - reads images from local disk
-  - reads `data/reid/embeddings.csv`
-  - writes enrollment state through local functions
-- `scripts/enroll_deer.py`
-  - `enroll_image(...)` currently computes MegaDescriptor embeddings and updates `gallery.json`
-- `scripts/gallery_utils.py`
-  - `load_gallery()` / `save_gallery()` assume local file paths
-  - gallery schema currently stores embeddings and image paths together
-
-### Deployment choice for next agents
-Chosen direction:
-- AWS S3 for hosted image storage and JSON files
-- AWS Lambda for the small write/read API
-- single user
-- no DynamoDB
-- local inference only
-- coarse serialization is acceptable
-- S3 versioning should be enabled
-
-### Important architectural consequence
-Because inference stays local, the hosted backend should not update embedding-bearing `gallery.json` directly during labeling.
-
-Instead, separate the data into:
-
-1. Hosted labels store
-   - user assignments only
-   - image key/path -> deer ID + side + timestamps + notes if needed
-
-2. Local compiled gallery
-   - built later on the M3 machine
-   - contains embeddings and image paths
-   - used by `identify_deer.py`
-
-This keeps cloud hosting cheap and keeps Torch/timm off Lambda.
-
-## 2) What Should Change In The Code
-
-### Current problem to remove
-We need to move away from a single stateful Python web server in `scripts/enrollment_ui.py`.
-
-The hosted version should become:
-- a static frontend
-- a small stateless JSON API
-- S3-backed storage
-- no model loading in the web path
-
-### Recommended target architecture
-
-#### Frontend
-Host a static UI in S3:
-- HTML
-- CSS
-- JS
-
-The browser should call Lambda endpoints like:
-- `GET /items`
-- `POST /enroll`
-- `POST /bulk-enroll`
-
-#### Backend
-Use Lambda for API behavior only:
-- read image index / labels JSON from S3
-- generate presigned image URLs if images stay private
-- validate label payloads
-- write updated labels JSON back to S3
-
-#### Storage
-Use one S3 bucket or two buckets.
-
-Simplest split:
-- `images/` - raw images for review
-- `manifests/` - image index CSV/JSON
-- `labels/labels.json` - current hosted label state
-- `labels/history/` - optional snapshots
-- `compiled/gallery.json` - local machine may upload compiled gallery snapshots if useful
-
-Enable:
-- bucket versioning
-- server-side encryption
-- least-privilege IAM for Lambda
-
-### Recommended code refactor
-
-#### A. Split labeling state from embedding gallery
-Current issue:
-- `scripts/enroll_deer.py` writes embeddings into `gallery.json` immediately
-
-Needed change:
-- create a new hosted label format that stores only labeling decisions
-
-Suggested JSON shape:
+One S3 object per labeled image. Key: image path with `/` replaced by `_`, e.g.:
+- `images/FD/IMG_0011.JPG` → `labels/images_FD_IMG_0011.JPG.json`
 
 ```json
-{
-  "version": 1,
-  "updated_at": "2026-03-28T12:00:00Z",
-  "items": {
-    "images/FD/foo.jpg": {
-      "deer_id": "5A",
-      "side": "left",
-      "updated_at": "2026-03-28T12:00:00Z"
-    }
-  }
-}
+{"deer_id": "5A", "side": "left", "updated_at": "2026-03-28T12:00:00Z"}
 ```
 
-This becomes the cloud source of truth for the web UI.
+Each POST writes exactly one file (atomic S3 PUT). `GET /items` lists `labels/` prefix and reads all files. No read-modify-write on a shared file — see state issue note in AWS services section.
 
-#### B. Keep `gallery.json` as a local compiled artifact
-Current issue:
-- `gallery.json` is both label store and embedding store
+### manifest.json (hosted in S3, built locally and uploaded once)
+```json
+[
+  {"image_path": "images/FD/IMG_0011.JPG", "side_hint": "left"},
+  {"image_path": "images/FD/IMG_0015.JPG", "side_hint": "unknown"}
+]
+```
+`side_hint` comes from `data/reid/index.csv` (`side_pred` column) matched by filename. Falls back to `"unknown"`.
 
-Needed change:
-- make `gallery.json` local/offline only
-- generate it from:
-  - hosted labels JSON
-  - S3 image set
-  - local MegaDescriptor embedding pass on the M3 machine
+---
 
-This means:
-- `identify_deer.py` still uses compiled gallery data locally
-- hosted UI does not need Torch, timm, or image embedding code
+## AWS services needed
 
-#### C. Replace `BaseHTTPRequestHandler` app with a static frontend
-Current issue:
-- `scripts/enrollment_ui.py` is a long-running Python web server
+| Service | Purpose | Cost |
+|---------|---------|------|
+| S3 (one bucket) | Images, labels, manifest | ~$0.005/month storage |
+| Lambda (one function) | API + HTML serving | ~$0.00 at this scale |
+| Lambda Function URL | HTTPS endpoint, no API Gateway needed | Free |
+| S3 versioning | Rollback on bad label writes | Free (slightly more storage) |
 
-Needed change:
-- extract the HTML/JS into static assets
-- remove server-specific behavior from the frontend
-- frontend should fetch JSON from Lambda instead of same-process handler methods
+No API Gateway. No CloudFront. No DynamoDB. No VPC.
 
-Practical refactor:
-- move current inline `INDEX_HTML` into static files, for example:
-  - `web/index.html`
-  - `web/app.js`
-  - `web/styles.css`
+**Lambda config:** Python 3.12 runtime, 256MB RAM, 30s timeout, **reserved concurrency = 1** (prevents concurrent label writes — safe alternative to distributed locking).
 
-#### D. Introduce pure service functions for hosted labeling
-Refactor toward pure functions that can run in Lambda.
+### ⚠ Known state issue — fix before implementing
 
-Suggested service functions:
-- `list_items(index_data, labels_data) -> list[dict]`
-- `apply_enrollment(labels_data, payload) -> labels_data`
-- `apply_bulk_enrollment(labels_data, payload) -> labels_data`
+The plan stores all labels in a single `labels.json` file. Every POST does: GET file → update in memory → PUT file back. This is a read-modify-write pattern with one known failure mode: **if Lambda is killed or times out between the GET and PUT, the in-progress write is lost silently.** S3 versioning lets you recover manually but does not prevent data loss.
 
-These should:
-- not read local disk directly
-- not depend on HTTP classes
-- not import Torch/timm
-- not assume `Path(...)` points to local files
+**Fix: use per-image label files instead of a monolithic JSON.**
 
-#### E. Add an S3 storage layer
-Current issue:
-- `load_gallery()` / `save_gallery()` only handle local filesystem paths
+Store each label as its own S3 object:
+```
+labels/images_FD_IMG_0011.JPG.json   ← one file per image
+labels/images_FD_IMG_0015.JPG.json
+...
+```
 
-Needed change:
-- add storage helpers for JSON in S3, for example:
-  - `load_labels_s3(bucket, key)`
-  - `save_labels_s3(bucket, key, data)`
-  - `load_manifest_s3(bucket, key)`
+Each file contains a single label entry:
+```json
+{"deer_id": "5A", "side": "left", "updated_at": "2026-03-28T12:00:00Z"}
+```
 
-This should be separate from domain logic.
+Each POST writes exactly one file — a single S3 PUT, which is atomic. No read-modify-write. A failed write affects only that one image, not the entire label store. Recovery is trivial.
 
-#### F. Add a local sync/compile script
-Add a local-only script that runs on the M3 machine.
+`GET /items` aggregates by listing `labels/` prefix and reading all files. At 660 images this is fast (~0.5s). If it becomes slow at larger scale, add a background job that consolidates into a summary JSON — but do not prematurely optimise.
 
-Suggested responsibilities:
-- download `labels/labels.json` from S3
-- read images from S3 or local synced folder
-- compute embeddings for labeled images
-- produce compiled `data/gallery/gallery.json`
-- optionally upload compiled snapshot to S3 for backup
+**Update the key naming:** use the image path with `/` replaced by `_` as the S3 key (e.g. `images/FD/IMG_0011.JPG` → `labels/images_FD_IMG_0011.JPG.json`). Keep a consistent, reversible mapping.
 
-Suggested file:
-- `scripts/compile_gallery_from_labels.py`
+This fix applies to both the cloud Lambda implementation and any local-disk equivalent. Do not implement the monolithic `labels.json` approach.
 
-#### G. Single-user write serialization
-Since the deployment is intentionally single-user, the cheapest safe approach is:
-- use one write Lambda
-- set reserved concurrency to 1
-- all write operations go through that Lambda
-- enable S3 versioning
+---
 
-This avoids adding DynamoDB-based locking.
+## Code changes required
 
-Optional extra safety:
-- reject overlapping writes if a short-lived lock object exists
-- but reserved concurrency 1 is probably enough here
+### 1. New script: `scripts/resize_images_for_upload.py` (local, run once)
 
-#### H. Optional simple auth
-For a single-user NGO setup, a full auth system may be overkill initially.
+Resize all images in `images/` to max 1200px long edge, save to `images_web/`. Upload `images_web/` to S3 `images/` prefix. Originals stay in `images/` on M3 for embedding generation.
 
-Minimum acceptable first version:
-- Lambda expects a shared secret header
-- static frontend prompts once and stores it in memory or local storage
-- images remain private in S3; Lambda returns presigned URLs
+```
+python scripts/resize_images_for_upload.py --input images/ --output images_web/
+aws s3 sync images_web/ s3://BUCKET_NAME/images/
+```
 
-If image sensitivity is high, upgrade later to a stronger auth layer.
+### 2. New script: `scripts/build_manifest.py` (local, run once then update when images change)
 
-### Suggested hosted request flow
+Reads `images_web/` directory, joins with `data/reid/index.csv` on filename to get `side_pred` hints, writes `manifest.json`, uploads to S3.
 
-#### GET /items
-Lambda:
-1. reads image manifest from S3
-2. reads `labels/labels.json` from S3
-3. returns:
-   - image key
-   - current deer ID if labeled
-   - current side if labeled
-   - already_enrolled boolean
-   - optional presigned image URL
+```
+python scripts/build_manifest.py --images-dir images_web/ --out manifest.json
+aws s3 cp manifest.json s3://BUCKET_NAME/manifest.json
+```
 
-#### POST /enroll
-Lambda:
-1. validates payload
-2. reads current labels JSON from S3
-3. updates one image record
-4. writes updated JSON back to S3
-5. returns success payload
+### 3. New Lambda handler: `lambda/handler.py`
 
-#### POST /bulk-enroll
-Lambda:
-1. validates rows
-2. reads current labels JSON
-3. applies multiple updates
-4. writes JSON back once
-5. returns counts
+Pure Python, no ML dependencies. Replaces the HTTP server logic from `enrollment_ui.py`. Handles all 5 endpoints listed in the architecture above. Uses `boto3` (pre-installed in Lambda runtime) for S3 reads/writes.
 
-### Suggested migration path
+Auth: checks `X-Enroll-Secret` header against `ENROLL_SECRET` env var on all POST endpoints. GET endpoints for images and items are unauthenticated (images are served via short-lived presigned URLs, not directly exposed).
 
-#### Phase 1 - cheapest useful hosted labeling
-- upload images to S3
-- create image manifest in S3
-- create static frontend
-- create Lambda API for `GET /items`, `POST /enroll`, `POST /bulk-enroll`
-- store labels in `labels/labels.json`
+Read the existing `enrollment_ui.py` handler logic as the reference — the business logic (`build_items`, `handle_enroll_payload`, `handle_bulk_enroll_payload`) can be reused nearly verbatim. Only the storage layer changes (S3 instead of local disk).
 
-#### Phase 2 - local compile workflow
-- add local script to download labels and build compiled `gallery.json`
-- keep `identify_deer.py` fully local
+Reuse the pure functions from `scripts/enrollment_ui.py`:
+- `build_items()` — adapt to read from manifest.json + labels.json instead of embeddings.csv
+- `handle_enroll_payload()` — same logic, swap `save_gallery()` for S3 PUT
+- `handle_bulk_enroll_payload()` — same logic
 
-#### Phase 3 - optional hardening
-- auth improvements
-- audit trail / snapshots
-- better labeling metadata
-- domain name / TLS polish
+### 4. New script: `scripts/compile_gallery_from_labels.py` (local M3 only, never deployed)
 
-## 3) Rough Cost Estimate - 1 User, Very Low Utilization, 1 Month
+Downloads `labels.json` from S3, loads each labeled image from local `images/`, runs MegaDescriptor embedding, writes `data/gallery/gallery.json`. This is the bridge between the hosted label store and the local identification tool.
 
-### Assumptions
-- one user only
-- very low usage
-- labeling only, no cloud inference
-- current image set roughly hundreds of images, not tens of thousands
-- no CloudFront, no EC2, no DynamoDB
-- no custom domain cost included
-- static site hosted in S3
-- images stored in S3
-- Lambda only handles small JSON requests
+```
+python scripts/compile_gallery_from_labels.py \
+  --bucket BUCKET_NAME \
+  --labels-key labels/labels.json \
+  --images-dir images/ \
+  --out data/gallery/gallery.json
+```
 
-### Cost drivers
-Main cost buckets:
-- S3 storage
-- S3 requests
-- data transfer out for viewed images
-- Lambda invocations
+---
 
-### Ballpark monthly estimate
+## Deployment steps
 
-#### S3 storage
-For a few GB of images plus tiny JSON/HTML:
-- likely about $0.05 to $0.25
+### Phase 1 — working hosted labeling
 
-#### S3 requests
-For low browsing and a small number of writes:
-- likely well under $0.10
+1. Create S3 bucket, enable versioning, note bucket name
+2. Run `resize_images_for_upload.py`, sync thumbnails to S3
+3. Run `build_manifest.py`, upload manifest.json to S3
+4. Initialize `labels.json` (empty: `{"version": 1, "items": {}}`) and upload to S3
+5. Write `lambda/handler.py` — test locally with mocked S3 using `moto`
+6. Package and deploy Lambda (`zip` + `aws lambda create-function`)
+7. Create Lambda Function URL, note the HTTPS endpoint
+8. Set `ENROLL_SECRET` env var on Lambda
+9. Test: open Function URL in browser, enroll one image, verify labels.json in S3 updated
 
-#### Lambda
-For a small API with very few requests:
-- likely $0.00 to $0.05
-- often effectively zero at this scale
+### Phase 2 — local compile workflow
 
-#### Data transfer out
-This is the most variable part.
-For one user browsing a modest number of images:
-- likely $0.10 to $1.50
+1. Write `compile_gallery_from_labels.py`
+2. Run it, verify `data/gallery/gallery.json` is produced correctly
+3. Test `identify_deer.py` still works with the compiled gallery
 
-### Expected total
+### Phase 3 — hardening (optional, do after Phase 1 works)
 
-#### Realistic low-usage estimate
-- about $0.25 to $2.00 for the month
+1. Set S3 bucket policy to block public access (images served only via presigned URLs)
+2. Add basic rate limiting in Lambda (reject if >100 requests/minute — protects against accidental loops)
+3. Add CloudWatch alarm on Lambda error rate (free tier covers this)
 
-#### Conservative safe estimate
-- under $3.00 for the month
+---
 
-### Things not included
-- custom domain registration
-- Route 53 hosted zone
-- CloudFront
-- stronger auth products
-- any accidental heavy download session of full-resolution images
+## What to tell the implementing agent
 
-## Final Recommendation
-
-For this project and budget, the best next step is:
-- keep inference local on the M3
-- host only labeling data and images
-- use S3 + Lambda
-- store labels only in the hosted JSON
-- compile embeddings locally into `gallery.json`
-- enforce single-writer behavior with Lambda reserved concurrency = 1
-- enable S3 versioning for rollback and recovery
-
-This is the cheapest reasonable hosted setup that still gives a real shared labeling workflow.
-
-## Notes For The Next Agent
-
-Do not deploy the current `scripts/enrollment_ui.py` as-is.
-
-The main required change is conceptual:
-- the hosted app should save label assignments
-- the local M3 workflow should build embedding gallery artifacts
-
-Do not put MegaDescriptor inference into Lambda for this phase.
-That would increase complexity, package size, cold start risk, and cost for no real benefit in the single-user setup.
+- Read `scripts/enrollment_ui.py` in full before writing `lambda/handler.py` — the business logic is already correct, only the storage layer changes
+- Read `scripts/gallery_utils.py` for the labels schema and `load_gallery`/`save_gallery` patterns
+- Run `pytest -q` before and after any changes to enrollment_ui.py
+- Do not add Flask, FastAPI, or any web framework to the Lambda — plain Python + boto3 only
+- Lambda Function URLs handle HTTPS automatically — no need for API Gateway or ACM certificates
+- The `already_enrolled` flag in the UI should be driven by `labels.json` items, not `gallery.json` (gallery.json is local only)

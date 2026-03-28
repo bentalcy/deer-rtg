@@ -13,20 +13,8 @@
         "conf": 0.880398154258728,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000000__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          406,
-          490,
-          554,
-          759
-        ],
-        "conf": 0.6344391703605652,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000000__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000000__t000__d00.jpg",
+        "flank_keep_prob": 0.7843316793441772
       }
     ]
   },
@@ -44,20 +32,8 @@
         "conf": 0.8794649839401245,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000060__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          411,
-          505,
-          553,
-          756
-        ],
-        "conf": 0.7176713943481445,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000060__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000060__t000__d00.jpg",
+        "flank_keep_prob": 0.8080178499221802
       }
     ]
   },
@@ -75,20 +51,8 @@
         "conf": 0.8772419095039368,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000120__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          415,
-          511,
-          551,
-          758
-        ],
-        "conf": 0.7203476428985596,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000120__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000120__t000__d00.jpg",
+        "flank_keep_prob": 0.7853204011917114
       }
     ]
   },
@@ -106,20 +70,8 @@
         "conf": 0.8748062252998352,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000180__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          412,
-          511,
-          560,
-          735
-        ],
-        "conf": 0.4426336884498596,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000180__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000180__t000__d00.jpg",
+        "flank_keep_prob": 0.7281171083450317
       }
     ]
   },
@@ -137,20 +89,8 @@
         "conf": 0.8809981346130371,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000240__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          386,
-          512,
-          564,
-          755
-        ],
-        "conf": 0.4552629590034485,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000240__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000240__t000__d00.jpg",
+        "flank_keep_prob": 0.7741986513137817
       }
     ]
   },
@@ -168,20 +108,8 @@
         "conf": 0.882970929145813,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000300__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          413,
-          519,
-          560,
-          753
-        ],
-        "conf": 0.6898635029792786,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000300__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000300__t000__d00.jpg",
+        "flank_keep_prob": 0.7711377143859863
       }
     ]
   },
@@ -199,20 +127,8 @@
         "conf": 0.8944970965385437,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000360__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          412,
-          476,
-          562,
-          759
-        ],
-        "conf": 0.7349730730056763,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000360__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000360__t000__d00.jpg",
+        "flank_keep_prob": 0.7783573865890503
       }
     ]
   },
@@ -230,20 +146,8 @@
         "conf": 0.890863835811615,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000420__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          410,
-          488,
-          564,
-          744
-        ],
-        "conf": 0.5980172753334045,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000420__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000420__t000__d00.jpg",
+        "flank_keep_prob": 0.7852743864059448
       }
     ]
   },
@@ -261,20 +165,8 @@
         "conf": 0.8819909691810608,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000480__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          416,
-          497,
-          567,
-          755
-        ],
-        "conf": 0.6430798768997192,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000480__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000480__t000__d00.jpg",
+        "flank_keep_prob": 0.7778944969177246
       }
     ]
   },
@@ -292,20 +184,8 @@
         "conf": 0.8943668007850647,
         "cls": 0,
         "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000540__t000__d00.jpg"
-      },
-      {
-        "track_id": 1,
-        "bbox": [
-          409,
-          488,
-          559,
-          758
-        ],
-        "conf": 0.7097688913345337,
-        "cls": 0,
-        "cls_name": "Deer",
-        "new_name": "runs/poc1_food1_1/04_tracklets/track_001/food1_1_frame000540__t001__d01.jpg"
+        "new_name": "runs/poc1_food1_1/04_tracklets/track_000/food1_1_frame000540__t000__d00.jpg",
+        "flank_keep_prob": 0.7843669056892395
       }
     ]
   }
