@@ -4,7 +4,9 @@ torchaudio==2.9.1
 ultralytics==8.3.74
 opencv-python==4.10.0.84
 tqdm==4.66.5
-# ultralytics caps numpy at 2.1.1; use that to avoid conflicts
-numpy==2.1.1
+# hdbscan + scikit-learn 1.3.x require numpy <2.0
+numpy==1.26.4
 pillow==10.4.0
 transformers==4.46.3
+hdbscan==0.8.40
+scikit-learn==1.3.2

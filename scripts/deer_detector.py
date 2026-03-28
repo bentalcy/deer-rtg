@@ -257,7 +257,11 @@ def extract_deer_crops_from_frames(
 
     detector = DeerDetector(model_name=model_name, conf=min_conf, iou=iou)
     classifier = load_clip_classifier() if filter_nondeer else None
-    frame_files = [p for p in frames_root.rglob("*.jpg")]
+    frame_files = [
+        p
+        for p in frames_root.rglob("*")
+        if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
+    ]
     actions = []
 
     print(f"Found {len(frame_files)} frames to scan.")

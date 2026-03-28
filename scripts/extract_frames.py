@@ -12,6 +12,8 @@ def extract_frames_from_video(
     max_frames=None,
     actions=None,
     every_seconds=None,
+    min_change=None,
+    change_resize=32,
 ):
     """Extract every `stride`-th frame from a single video."""
     out_dir = Path(out_dir)
@@ -29,6 +31,7 @@ def extract_frames_from_video(
     stride_frames = stride
     if every_seconds is not None and fps > 0:
         stride_frames = max(1, round(fps * every_seconds))
+    prev_gray = None
 
     while True:
         ret, frame = cap.read()
@@ -36,6 +39,15 @@ def extract_frames_from_video(
             break
 
         if frame_idx % stride_frames == 0:
+            if min_change is not None:
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                gray = cv2.resize(gray, (change_resize, change_resize))
+                if prev_gray is not None:
+                    diff = cv2.absdiff(prev_gray, gray).mean()
+                    if diff < float(min_change):
+                        frame_idx += 1
+                        continue
+                prev_gray = gray
             out_name = f"{stem}_frame{frame_idx:06d}.jpg"
             out_path = out_dir / out_name
             cv2.imwrite(str(out_path), frame)
@@ -101,6 +113,8 @@ def main(
             max_frames=max_frames,
             actions=actions,
             every_seconds=every_seconds,
+            min_change=args.min_change,
+            change_resize=args.change_resize,
         )
         print(f"{vid}: saved {n} frames")
 
@@ -124,6 +138,8 @@ if __name__ == "__main__":
     parser.add_argument("--actions-path", default=None)
     parser.add_argument("--video-path", default=None)
     parser.add_argument("--every-seconds", type=float, default=None)
+    parser.add_argument("--min-change", type=float, default=None)
+    parser.add_argument("--change-resize", type=int, default=32)
     args = parser.parse_args()
 
     max_frames = args.max_frames if args.max_frames and args.max_frames > 0 else None

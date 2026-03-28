@@ -1,6 +1,9 @@
 # Virtual environments
 .venv/
 venv/
+basedpyright/
+install/
+pip/
 
 # Python cache
 __pycache__/
@@ -13,6 +16,7 @@ tmp_crops_filtered/
 tmp_crops_filtered2/
 gallery_embeds.npz
 gallery_meta.json
+*.json
 
 # Videos and images
 videos/
@@ -246,3 +250,5 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+runs/*
+runs/*/*/*

@@ -4,40 +4,96 @@ Goal: given ~5,000 short videos of ~100 individual deer, automatically detect **
 
 ## Project Status
 
-- **Current goal**: Run POC 1 on `videos/food1_1.mp4` (sample frames, detect deer, record JSON trail).
-- **Current state**:
-- Plan captured in this README; pipeline phases and directory stages are outlined.
-- Scripts exist for frame extraction and deer detection in `scripts/`.
-- Frame extraction supports single video input, frame cap, and actions JSON.
-- POC 1 frames extracted for `food1_1.mp4` in `runs/poc1_food1_1/02_frames/`.
-- Local detector weights available at `models/peura/train/weights/best.pt`.
-- POC 1 detection outputs saved under `runs/poc1_food1_1/03_crops/`.
-- Crop cleanup + stricter detection attempt is the next action.
-- Current cropping is OK for a single deer, but frames can contain multiple individual deer.
-- New pipeline step is needed to isolate/track multiple deer instead of assuming one target per frame.
-- POC 1 requires sampling every 10th frame with a hard cap of 10 frames.
-- Detection uses `atonus/peura` via `ultralytics` on macOS MPS.
-- JSON trails are expected for frames and detections.
-- Input is a flat root under `videos/`.
-- Output staging for POC 1 is not run yet.
-- **TODO**:
-- [x] Provide local weights for `atonus/peura` in `models/`.
-- [x] Extract frames from `videos/food1_1.mp4` with stride=10 and cap=10, write frame actions JSON.
-- [ ] Rerun detection with stricter NMS/size/aspect params to reduce multi-animal crops.
-- [ ] Add multi-deer isolation step: build tracklets across sampled frames and output per-track crops.
+- **Current goal**: Build an enrollment-based identification tool — 4 new scripts, no model training required.
+- **Resume from**: `AGENT_HANDOFF.md` — read this first, it has exact next steps.
+- **Full context**: `docs/PROJECT_GUIDE.md` — written for AI agents, has full spec and history.
+
+### What exists
+- 253 DINOv2 embeddings computed: `data/reid/embeddings.pt` (253×768)
+- Flank crops: `data/reid/flank_pool/`
+- Embedding metadata: `data/reid/embeddings.csv`
+- Flank gate: `data/models/flank_gate.pt` (threshold 0.56)
+
+### What to build next
+- All 4 enrollment scripts exist (`scripts/gallery_utils.py`, `scripts/enroll_deer.py`, `scripts/identify_deer.py`, `scripts/enrollment_ui.py`).
+- Test hardening is complete (threshold behavior, identify end-to-end path, confidence formula assertions, duplicate enrollment no-op, missing-gallery UI behavior).
+- Next step: smoke test the enrollment UI locally on `127.0.0.1:8765`.
+
+### Why we changed direction
+The original clustering → ArcFace plan produced no usable identification tool after extensive work. The 253 images come from only 6 video encounters (near-duplicate frames), clustering latched onto wrong features (collars, injury stripes), and no ground-truth deer labels were ever created. The enrollment-based approach works today with existing embeddings and ~30 minutes of human labeling. See `docs/PROJECT_GUIDE.md` for full history.
+
+## Engineering TODO (Detailed)
+
+Data model + indexing
+- [ ] Define a single re-ID instance record schema (instance_id, image_path, source frame/video/camera, timestamp/time_sec, track_id, bbox, det_conf, flank_keep_prob)
+- [ ] Add a script to build an authoritative index from `runs/*/*/actions.json` into `data/reid/index.csv`
+- [ ] Ensure all downstream artifacts join on `instance_id` (not only `image_path`)
+
+Evaluation hygiene (deal-breaker)
+- [ ] Implement encounter-based splitting (group burst sequences; keep encounters atomic across splits)
+- [ ] Add similarity-aware leakage check to ensure near-duplicates do not cross train/val/test
+- [ ] Add stratified reporting scaffolding (per camera, day vs night; season when available)
+
+Embeddings
+- [ ] Update embedding generation to consume `data/reid/index.csv` and write `data/reid/embeddings.pt` + `data/reid/embeddings_meta.csv` keyed by instance_id
+- [ ] Make embedding runs deterministic (seeded) and reproducible (model name/version recorded alongside outputs)
+
+Bootstrapping (deal-breaker)
+- [ ] Replace KMeans clustering with HDBSCAN-first clustering (emit noise/outliers + membership confidence)
+- [ ] Add a second clustering view (nearest-neighbor / threshold graph) for dual-view comparison
+- [ ] Generate a disagreement-driven review queue (AAS-style) from the two clustering views
+- [ ] Add must-link / cannot-link constraints capture and propagation to produce `data/reid/clusters_corrected.csv`
+
+Review UI
+- [ ] Update the UI to operate on the review queue + cluster medoids (not just raw cluster browsing)
+- [ ] Apply moves/merges/constraints to produce an authoritative corrected cluster file
+- [ ] Export identity labels `data/reid/labels_identity.csv` (instance_id/image_path -> deer_id)
+- [ ] Export a training manifest `data/reid/train_manifest.csv` (instance_id, image_path, deer_id, split, optional viewpoint)
+
+Supervised re-ID model
+- [ ] Implement a first metric-learning training script (ArcFace/CosFace-style) on `data/reid/train_manifest.csv`
+- [ ] Add horizontal flip augmentation as a default viewpoint regularizer
+- [ ] If left/right views form separate modes: add Sub-center ArcFace option (multi-prototype per deer)
+
+Open-set gating (deal-breaker)
+- [ ] Implement gating calibration using validation data: top-1/top-2 margin + per-ID (or density-aware) thresholds
+- [ ] If identity drift persists: add an EVT/EVM-style per-ID inclusion model upgrade path
+
+New batch / deployment plumbing
+- [ ] Add a new-batch inference script: detect -> crop -> flank gate -> embed -> retrieve/gate -> per-image deer ID sets
+- [ ] Write outputs: per-image results + review bins + summary metrics (including stratified counts)
+
+Validation and invariants
+- [ ] Add a pipeline validator (index/embedding alignment, split integrity, deterministic queue generation, stable CSV schemas)
 - **How to resume**:
 - `uv venv .venv && source .venv/bin/activate`
 - `uv pip install -r requirements.txt`
-- Next file: `scripts/deer_detector.py`
-- New step script: `scripts/build_tracklets.py`
+- Start review UI with hot reload:
+  - `python3 scripts/reid/dev_review_cluster_outliers_web.py -- --host 127.0.0.1 --port 8011`
+- Next file: `scripts/reid/review_cluster_outliers_web.py`
+- Primary artifacts to keep stable:
+  - `data/reid/unified_round5/clusters_recognizable_plus_manual_round2_k40_corrected_web.csv`
+  - `data/reid/unified_round5/deer_id_proposal_recognizable_plus_manual_round2_k40_corrected_web.csv`
+  - `data/reid/unified_round5/cluster_outlier_queue_k40_web.csv`
+  - `data/reid/unified_round5/cluster_outlier_review_decisions_k40_web.csv`
+  - `data/reid/unified_round5/side_labels_k40_web.csv`
 - **Notes / decisions**:
 - Use `videos/food1_1.mp4` for POC 1.
 - Frame actions JSON: `runs/poc1_food1_1/02_frames/actions.json`.
 - Frame sampling config: every 1.0 seconds, cap at 10 frames.
 - Detection actions JSON: `runs/poc1_food1_1/03_crops/actions.json`.
+- Pool frames actions: `data/pool/frames/actions.json`.
+- Pool crops actions: `data/pool/crops/actions.json` (legacy pool).
+- Tracklets pool: `data/pool/tracklets/` sourced from `runs/poc1_food1_1/04_tracklets/`.
+- Next batch: `data/active_learning/next_batch/`.
 - Second attempt params: NMS IoU=0.3, min_rel_area=0.02, max_rel_area=0.6, min_aspect=0.4, max_aspect=2.5, split wide boxes (aspect>2.2 or rel_area>0.4) with re-detect.
 - Third attempt params: tile detect (size=640, overlap=0.2, tile NMS IoU=0.5) with same NMS/size/aspect filters.
 - Fourth attempt params: limit to 1 detection per frame by area (max_dets=1, max_dets_by=area).
+- Flank gate labels are binary keep/reject; legacy reject_back/reject_other map to reject in training.
+- Use post-training thresholding with expected-cost evaluation before cost-weighted training.
+- Re-ID is based on flank crops; antlers are not reliable across seasons.
+- Current review preference: keep anomalous high-ID singleton clusters as-is for now; defer cleanup until review logic is fully stable.
+- If `CLUSTER_xxx` is missing from Merge dropdown, use `Assign Selected` dropdown (all clusters) to force move images into the target cluster.
 
 ### Proposed new step: Tracklets for multi-deer isolation
 
@@ -54,6 +110,60 @@ python scripts/build_tracklets.py \
   --model models/peura/train/weights/best.pt \
   --conf 0.4 --iou-nms 0.3 --match-iou 0.3 --max-missed 2 \
   --actions-path runs/poc1_food1_1/04_tracklets/actions.json
+```
+
+To filter tracklet crops with the usable-flank gate:
+
+```bash
+python scripts/build_tracklets.py \
+  --frames-root runs/poc1_food1_1/02_frames \
+  --out-root runs/poc1_food1_1/04_tracklets \
+  --model models/peura/train/weights/best.pt \
+  --conf 0.4 --iou-nms 0.3 --match-iou 0.3 --max-missed 2 \
+  --flank-gate-model data/models/flank_gate.pt \
+  --flank-gate-threshold 0.56 \
+  --actions-path runs/poc1_food1_1/04_tracklets/actions.json
+```
+
+### Labeling usable flanks (KEYPRESS tool)
+
+Keys: `k=KEEP` (flank >=85%), `r=REJECT`, `b=REJECT`, `s=SKIP`, `u=UNDO`, `q=QUIT`.
+
+Output folders: `data/labeled/keep/`, `data/labeled/reject/`, `data/labeled/skip/`.
+
+Labels file: `data/labeled/labels.csv`.
+
+Command:
+
+```bash
+python scripts/label_crops.py --pool-dir data/pool --shuffle
+```
+
+Pool built:
+- Frames: `data/pool/frames/`
+- Crops: `data/pool/crops/`
+- Frame actions: `data/pool/frames/actions.json`
+- Crop actions: `data/pool/crops/actions.json`
+
+Current labeled counts (labels.csv): keep=459, reject_back=96, reject_other=501.
+
+Latest flank gate metrics (val):
+- accuracy: 0.724
+- keep: precision 0.789, recall 0.845
+- reject_back: precision 0.538, recall 0.467
+- reject_other: precision 0.630, recall 0.567
+- back_false_keep_rate: 0.467 (improved vs 0.733, still too high)
+
+Training command:
+
+```bash
+python scripts/train_flank_gate.py --labeled-dir data/labeled --out-dir data/models
+```
+
+Scoring + next batch (tracklets pool):
+
+```bash
+python scripts/score_flank_gate.py --pool-dir data/pool/tracklets --model-path data/models/flank_gate.pt --out-csv data/active_learning/scores.csv --next-batch-dir data/active_learning/next_batch --next-batch-size 200
 ```
 - **Crop quality proposals (ordered by likely success)**:
 - Add tighter post-processing on detections: tune NMS IoU lower, enforce stricter min/max bbox area and aspect ratio to reject wide multi-animal boxes.
